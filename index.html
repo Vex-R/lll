@@ -41,6 +41,10 @@
             .transition-all-300 {
                 @apply transition-all duration-300;
             }
+        	a{
+	        color : yellow;
+        	}
+
         }
     </style>
 </head>
@@ -51,6 +55,7 @@
         <i class="fa-solid fa-lock text-primary text-8xl mb-8 icon-shadow"></i>
         <h1 class="text-6xl font-bold text-primary mb-4">已经删除</h1>
         <p class="text-xl text-gray-400 max-w-md">此留言板的所有数据已在指定时间自动清除。</p>
+        <a href = 'https://vex-r.github.io/HappyNewYear/'>这是什么</a>
     </div>
 
     <!-- 正常状态容器 -->
@@ -88,7 +93,7 @@
 
     <script>
         // 配置常量
-        const EXPIRY_DATE = new Date('2025-12-31T12:59:59');
+        const EXPIRY_DATE = new Date('2025-12-31T13:10:59');
         const STORAGE_KEY = 'trashCanMessages';
 
         // DOM 元素
@@ -229,4 +234,5 @@
         init();
     </script>
 </body>
+
 </html>
