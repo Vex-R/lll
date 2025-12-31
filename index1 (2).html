@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>留言板</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- 自定义 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#00FF00', // 亮绿色
+                        secondary: '#000000', // 黑色
+                        accent: '#333333', // 深灰色
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .icon-shadow {
+                filter: drop-shadow(0 0 8px rgba(0, 255, 0, 0.7));
+            }
+            .input-focus {
+                @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50;
+            }
+            .transition-all-300 {
+                @apply transition-all duration-300;
+            }
+        }
+    </style>
+</head>
+<body class="bg-secondary min-h-screen font-inter text-white flex flex-col items-center justify-start pt-8 pb-12 px-4">
+    <!-- 过期状态容器 -->
+    <div id="expired-container" class="hidden fixed inset-0 bg-secondary flex flex-col items-center justify-center text-center p-8">
+        <!-- 保留了 icon-shadow 类，所以锁图标依然会发光 -->
+        <i class="fa-solid fa-lock text-primary text-8xl mb-8 icon-shadow"></i>
+        <h1 class="text-6xl font-bold text-primary mb-4">已经删除</h1>
+        <p class="text-xl text-gray-400 max-w-md">此留言板的所有数据已在指定时间自动清除。</p>
+    </div>
+
+    <!-- 正常状态容器 -->
+    <div id="normal-container" class="w-full max-w-4xl mx-auto">
+        <!-- 头部区域 -->
+        <header class="text-center mb-12">
+            <!-- 移除了 icon-shadow 类，所以主垃圾桶图标不再发光 -->
+            <i class="fa-solid fa-trash-can text-primary text-9xl mb-6"></i>
+            <h1 class="text-5xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                留言板
+            </h1>
+            <p class="text-gray-400 mt-2 text-lg">写下你的想法，然后“扔掉”它</p>
+        </header>
+
+        <!-- 输入区域 -->
+        <div class="mb-12 flex flex-col sm:flex-row gap-4 items-center">
+            <div class="relative w-full">
+                <input 
+                    type="text" 
+                    id="message-input" 
+                    placeholder="输入你的留言..."
+                    class="w-full py-4 px-6 bg-accent border-2 border-primary/30 rounded-lg text-white placeholder-gray-500 input-focus transition-all-300"
+                >
+                <button id="add-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-primary hover:text-primary/80 transition-all-300">
+                    <i class="fa-solid fa-paper-plane text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 留言列表 -->
+        <div id="messages-container" class="space-y-4">
+            <!-- 留言项将通过 JavaScript 动态添加 -->
+        </div>
+    </div>
+
+    <script>
+        // 配置常量
+        const EXPIRY_DATE = new Date('2025-12-31T12:05:59');
+        const STORAGE_KEY = 'trashCanMessages';
+
+        // DOM 元素
+        const expiredContainer = document.getElementById('expired-container');
+        const normalContainer = document.getElementById('normal-container');
+        const messageInput = document.getElementById('message-input');
+        const addBtn = document.getElementById('add-btn');
+        const messagesContainer = document.getElementById('messages-container');
+
+        // 检查是否过期
+        function checkExpiry() {
+            const now = new Date();
+            if (now >= EXPIRY_DATE) {
+                // 如果已过期，显示过期页面并清除本地存储
+                localStorage.removeItem(STORAGE_KEY);
+                expiredContainer.classList.remove('hidden');
+                normalContainer.classList.add('hidden');
+                return true;
+            }
+            return false;
+        }
+
+        // 从本地存储加载留言
+        function loadMessages() {
+            const messages = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            return messages;
+        }
+
+        // 保存留言到本地存储
+        function saveMessages(messages) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+        }
+
+        // 渲染留言列表
+        function renderMessages() {
+            const messages = loadMessages();
+            messagesContainer.innerHTML = '';
+
+            if (messages.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'text-center py-12 text-gray-500';
+                // 删除了灰色图标 <i> 标签
+                emptyState.innerHTML = `
+                    <p class="text-xl">还没有留言，快来添加第一条吧！</p>
+                `;
+                messagesContainer.appendChild(emptyState);
+                return;
+            }
+
+            messages.forEach((message, index) => {
+                const messageEl = document.createElement('div');
+                messageEl.className = 'bg-accent/50 backdrop-blur-sm p-4 rounded-lg flex items-center justify-between hover:bg-accent transition-all-300';
+                messageEl.innerHTML = `
+                    <p class="text-white text-lg flex-1">${escapeHtml(message)}</p>
+                    <button 
+                        class="delete-btn text-primary hover:text-primary/80 ml-4 transition-all-300"
+                        data-index="${index}"
+                    >
+                        <i class="fa-solid fa-trash-can text-xl"></i>
+                    </button>
+                `;
+                messagesContainer.appendChild(messageEl);
+            });
+
+            // 添加删除事件监听
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', handleDelete);
+            });
+        }
+
+        // HTML 转义函数，防止 XSS 攻击
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // 添加留言
+        function addMessage() {
+            const text = messageInput.value.trim();
+            if (!text) return;
+
+            const messages = loadMessages();
+            messages.push(text);
+            saveMessages(messages);
+            
+            // 清空输入框并重新聚焦
+            messageInput.value = '';
+            messageInput.focus();
+            
+            // 重新渲染列表
+            renderMessages();
+            
+            // 添加动画效果
+            const newMessage = messagesContainer.lastElementChild;
+            newMessage.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                newMessage.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
+
+        // 删除留言
+        function handleDelete(e) {
+            const index = parseInt(e.currentTarget.dataset.index);
+            const messages = loadMessages();
+            
+            // 移除对应留言
+            messages.splice(index, 1);
+            saveMessages(messages);
+            
+            // 添加删除动画
+            const messageEl = e.currentTarget.parentElement;
+            messageEl.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                renderMessages();
+            }, 300);
+        }
+
+        // 初始化
+        function init() {
+            // 检查是否过期
+            if (checkExpiry()) return;
+
+            // 渲染现有留言
+            renderMessages();
+
+            // 添加事件监听
+            addBtn.addEventListener('click', addMessage);
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addMessage();
+            });
+        }
+
+        // 启动应用
+        init();
+    </script>
+</body>
+</html>
